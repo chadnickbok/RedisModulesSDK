@@ -120,7 +120,7 @@ int ZGETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     }
     RedisModule_AutoMemory(ctx);
 
-    // open the key and make sure it's indeed a HASH and not empty
+    // open the key and make sure it's indeed a string or empty
     RedisModuleKey *key = RedisModule_OpenKey(ctx, argv[1], REDISMODULE_READ);
     if (RedisModule_KeyType(key) != REDISMODULE_KEYTYPE_STRING)
     {
@@ -144,6 +144,116 @@ int ZGETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     return REDISMODULE_OK;
 }
 
+/**
+ * zstd.ZDICTSET <key> <dictkey> <value>
+ * Set a compressed value using the dictionary stored at <dictkey>
+ */
+int ZDICTSETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
+{
+    if (argc != 4)
+    {
+        return RedisModule_WrongArity(ctx);
+    }
+    RedisModule_AutoMemory(ctx);
+
+    // open the key and make sure it's indeed a string or empty
+    RedisModuleKey *key = RedisModule_OpenKey(ctx, argv[1], REDISMODULE_READ|REDISMODULE_WRITE);
+    if ((RedisModule_KeyType(key) != REDISMODULE_KEYTYPE_STRING) && (RedisModule_KeyType(key) != REDISMODULE_KEYTYPE_EMPTY))
+    {
+        return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
+    }
+
+    // open the dictkey and make sure its a string
+    RedisModuleKey *dictkey = RedisModule_OpenKey(ctx, argv[2], REDISMODULE_READ);
+    if (RedisModule_KeyType(key) != REDISMODULE_KEYTYPE_STRING)
+    {
+        return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
+    }
+
+    // Get our dictionary
+    size_t dict_len;
+    char *dict_buf = RedisModule_StringDMA(dictkey, &dict_len, REDISMODULE_READ);
+
+    size_t len;
+    const char *value = RedisModule_StringPtrLen(argv[3], &len);
+    // XXX: Do I need to check for errors here? ie. zero-length values
+
+    size_t bound = ZSTD_compressBound(len);
+    void *buf = RedisModule_Alloc(bound);
+    // XXX: Do I need to check return value of RedisModule_Alloc?
+
+    ZSTD_CCtx *zcctx = ZSTD_createCCtx();
+
+    size_t res = ZSTD_compress_usingDict(zcctx, buf, bound, value, len, dict_buf, dict_len, 1);
+    if (ZSTD_isError(res))
+    {
+        RedisModule_CloseKey(key);
+        const char *zstd_err = ZSTD_getErrorName(res);
+        return RedisModule_ReplyWithError(ctx, zstd_err);
+    }
+
+    RedisModuleString *compressed_string = RedisModule_CreateString(ctx, (const char *)buf, res);
+    
+    RedisModule_StringSet(key, compressed_string);
+    RedisModule_CloseKey(key);
+    RedisModule_Free(buf);
+
+    RedisModule_ReplyWithSimpleString(ctx,"OK");    
+
+    return REDISMODULE_OK;
+}
+
+/**
+ * zstd.ZDICTGET <key> <dictkey>
+ * Get a compressed value stored at <key> and compressed with dictionary at <dictkey>
+ */
+int ZDICTGETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
+{
+    // we need EXACTLY 3 arguments
+    if (argc != 3)
+    {
+        return RedisModule_WrongArity(ctx);
+    }
+    RedisModule_AutoMemory(ctx);
+
+    // ensure dictkey is string
+    RedisModuleKey *dictkey = RedisModule_OpenKey(ctx, argv[2], REDISMODULE_READ);
+    if (RedisModule_KeyType(dictkey) != REDISMODULE_KEYTYPE_STRING)
+    {
+        return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
+    }
+
+    // ensure key is string
+    RedisModuleKey *key = RedisModule_OpenKey(ctx, argv[1], REDISMODULE_READ);
+    if (RedisModule_KeyType(key) != REDISMODULE_KEYTYPE_STRING)
+    {
+        return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
+    }
+
+    // Get our dictionary
+    size_t dict_len;
+    char *dict_buf = RedisModule_StringDMA(dictkey, &dict_len, REDISMODULE_READ);
+
+    size_t compressed_len;
+    char *compressed_buf = RedisModule_StringDMA(key, &compressed_len, REDISMODULE_READ);
+    // XXX: Do I need to check for errors here?
+
+    unsigned long long buf_size = ZSTD_getDecompressedSize(compressed_buf, compressed_len);
+    void *decompressed_buf = RedisModule_Alloc(buf_size);
+    
+    ZSTD_DCtx* zdctx = ZSTD_createDCtx();
+    size_t actual_size = ZSTD_decompress_usingDict(
+        zdctx,
+        decompressed_buf, buf_size,
+        compressed_buf, compressed_len,
+        dict_buf, dict_len);
+    RedisModule_ReplyWithStringBuffer(ctx, decompressed_buf, actual_size);
+
+    RedisModule_Free(decompressed_buf);
+
+    return REDISMODULE_OK;
+}
+
 
 int RedisModule_OnLoad(RedisModuleCtx *ctx) {
     // Register the module itself
@@ -160,10 +270,11 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx) {
     RMUtil_RegisterWriteCmd(ctx, "zstd.ZSETLEVEL", ZSETLEVELCommand);
 
     // Scary commands that can lose data (if a dict is lost so are all its compressed values)
-    // zstd.ZDICT <key> <string> - upload a new compression dictionary with the given key
     // zstd.ZDICTSET <key> <dictkey> <string> - compress using the given dictionary
-    // zstd.ZDICTSETLEVEL <key> <dictkey> <level> <string> - compress using the given dict and level
     // zstd.ZDICTGET <key> <dictkey> - get the value stored at key decompressed with the dictionary at dictkey
+
+    // The ultimate command
+    // zstd.ZDICTSETLEVEL <key> <dictkey> <level> <string> - compress using the given dict and level
 
     return REDISMODULE_OK;
 }
