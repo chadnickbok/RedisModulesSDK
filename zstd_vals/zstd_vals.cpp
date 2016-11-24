@@ -17,6 +17,8 @@ extern "C" {
 #include "ZSETTask.hpp"
 #include "TaskScheduler.hpp"
 
+std::shared_ptr<TaskScheduler> scheduler = nullptr;
+
 int ZSET_Reply(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
 {
     REDISMODULE_NOT_USED(argv);
@@ -76,7 +78,7 @@ int ZSETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         return RedisModule_WrongArity(ctx);
     }
 
-    ZSETTask *task = new ZSETTask();
+    std::shared_ptr<ZSETTask> task = std::make_shared<ZSETTask>();
 
     const char *key_in = RedisModule_StringPtrLen(argv[1], &task->key_len);
     task->key = (char*) RedisModule_Alloc(task->key_len);
@@ -88,8 +90,7 @@ int ZSETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
 
     task->bc = RedisModule_BlockClient(ctx, ZSET_Reply, ZSET_Timeout, ZSET_FreeData, 1000 * 10);
 
-    std::thread runtask(&ZSETTask::Run, task);
-    runtask.detach();
+    scheduler->PushTask(task);
 
     return REDISMODULE_OK;
 }
@@ -316,6 +317,8 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx) {
 
     // The ultimate command
     // zstd.ZDICTSETLEVEL <key> <dictkey> <level> <string> - compress using the given dict and level
+
+    scheduler = std::make_shared<TaskScheduler>(4);
 
     return REDISMODULE_OK;
 }
