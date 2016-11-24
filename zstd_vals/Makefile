@@ -8,11 +8,13 @@ SHOBJ_CFLAGS ?=  -fno-common -g -ggdb
 SHOBJ_LDFLAGS ?= -shared -Bsymbolic
 CFLAGS = -I$(RM_INCLUDE_DIR) -I$(ZSTD_INCLUDE_DIR) -Wall -g -fPIC -lc -lm -O2 -fpermissive -std=c++11
 CC=g++
+SRCS=TaskQueue.cpp TaskScheduler.cpp TaskWorker.cpp zstd_vals.cpp
+OBJS=$(subst .cpp,.o,$(SRCS))
 
 all: zstd_vals.so
 
-zstd_vals.so: zstd_vals.o
-	$(LD) -o $@ zstd_vals.o $(SHOBJ_LDFLAGS) $(LIBS) -L$(RMUTIL_LIBDIR) -lrmutil -lc -L$(ZSTD_LIBDIR) -lzstd
+zstd_vals.so: $(OBJS)
+	$(LD) -o $@ $(OBJS) $(SHOBJ_LDFLAGS) $(LIBS) -L$(RMUTIL_LIBDIR) -lrmutil -lc -L$(ZSTD_LIBDIR) -lzstd
 
 %.o: %.cpp
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<

@@ -17,9 +17,11 @@ void TaskWorker::Stop() {
 }
 
 void TaskWorker::Run() {
-  while (!this->should_stop) {
-    std::shared_ptr<Task> task = task_queue.PopTask();
-    if (!task) {
+  while (!this->should_stop)
+  {
+    std::shared_ptr<Task> task = task_queue->PopTask();
+    if (!task)
+    {
       continue;
     }
 

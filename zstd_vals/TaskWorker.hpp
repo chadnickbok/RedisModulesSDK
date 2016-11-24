@@ -19,5 +19,6 @@ public:
   void Stop();
 
 private:
+  std::shared_ptr<TaskQueue> task_queue;
   std::atomic<bool> should_stop;
 };

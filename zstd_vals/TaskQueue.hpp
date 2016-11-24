@@ -12,6 +12,8 @@
 #include <vector>
 #include <queue>
 
+#include "Task.hpp"
+
 class TaskQueue {
 public:
   TaskQueue();

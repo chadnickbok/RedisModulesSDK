@@ -2,6 +2,9 @@
  * ZSTD redis module
  */
 
+#include <memory>
+#include <thread>
+
 extern "C" {
 #include "../redismodule.h"
 #include "../rmutil/util.h"
@@ -9,9 +12,9 @@ extern "C" {
 #include "../rmutil/test_util.h"
 
 #include <zstd.h>
-#include <pthread.h>
 }
 
+#include "ZSETTask.hpp"
 #include "TaskScheduler.hpp"
 
 typedef struct {
@@ -31,7 +34,7 @@ int ZSET_Reply(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     REDISMODULE_NOT_USED(argv);
     REDISMODULE_NOT_USED(argc);
 
-    zset_task *task = (zset_task*) RedisModule_GetBlockedClientPrivateData(ctx);
+    ZSETTask *task = (ZSETTask*) RedisModule_GetBlockedClientPrivateData(ctx);
 
     if (ZSTD_isError(task->res))
     {
@@ -76,18 +79,6 @@ void ZSET_FreeData(void *privdata)
     RedisModule_Free(task);
 }
 
-void *ZSET_ThreadMain(void *arg)
-{
-    zset_task *task = (zset_task*) arg;
-
-    size_t bound = ZSTD_compressBound(task->value_len);
-    task->compressed = RedisModule_Alloc(bound);
-    task->res = ZSTD_compress(task->compressed, bound, task->value, task->value_len, 1); // Default super-fast mode
-
-    RedisModule_UnblockClient(task->bc, task);
-    return NULL;
-}
-
 /*
  * zstd_vals.ZSET <key> <value>
  * Compress and store a key.
@@ -100,7 +91,7 @@ int ZSETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         return RedisModule_WrongArity(ctx);
     }
 
-    zset_task *task = (zset_task*) RedisModule_Alloc(sizeof(zset_task));
+    ZSETTask *task = new ZSETTask();
 
     const char *key_in = RedisModule_StringPtrLen(argv[1], &task->key_len);
     task->key = (char*) RedisModule_Alloc(task->key_len);
@@ -110,15 +101,10 @@ int ZSETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     task->value = (char*) RedisModule_Alloc(task->value_len);
     memcpy(task->value, value_in, task->value_len);
 
-    pthread_t tid;
     task->bc = RedisModule_BlockClient(ctx, ZSET_Reply, ZSET_Timeout, ZSET_FreeData, 1000 * 10);
 
-    if (pthread_create(&tid, NULL, ZSET_ThreadMain, task) != 0)
-    {
-        RedisModule_AbortBlock(task->bc);
-        RedisModule_Free(task);
-        return RedisModule_ReplyWithError(ctx, "-ERR Can't start thread");
-    }
+    std::thread runtask(&ZSETTask::Run, task);
+    runtask.detach();
 
     return REDISMODULE_OK;
 }
