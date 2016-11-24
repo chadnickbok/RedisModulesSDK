@@ -7,20 +7,22 @@
 
 extern "C" {
 #include <zstd.h>
-#include "../redismodule.h"
-#include "../rmutil/util.h"
-#include "../rmutil/strings.h"
-#include "../rmutil/test_util.h"
+extern void (*RedisModule_Free)(void *ptr);
+extern void *(*RedisModule_Alloc)(size_t bytes);
+extern int (*RedisModule_UnblockClient)(RedisModuleBlockedClient *bc, void *privdata);
 }
 
-ZSETTask::ZSETTask()
+ZSETTask::ZSETTask() :
+    key(NULL), value(NULL), compressed(NULL)
 {
     ;
 }
 
 ZSETTask::~ZSETTask()
 {
-    ;
+    RedisModule_Free(this->key);
+    RedisModule_Free(this->value);
+    RedisModule_Free(this->compressed);
 }
 
 void ZSETTask::Run()
@@ -29,5 +31,5 @@ void ZSETTask::Run()
     this->compressed = RedisModule_Alloc(bound);
     this->res = ZSTD_compress(this->compressed, bound, this->value, this->value_len, 1);
 
-    RedisModule_UnblockClient(this->bc, task);
+    RedisModule_UnblockClient(this->bc, this);
 }

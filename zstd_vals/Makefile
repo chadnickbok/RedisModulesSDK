@@ -6,9 +6,10 @@ ZSTD_LIBDIR=../zstd/lib
 # Compile flags for linux
 SHOBJ_CFLAGS ?=  -fno-common -g -ggdb
 SHOBJ_LDFLAGS ?= -shared -Bsymbolic
-CFLAGS = -I$(RM_INCLUDE_DIR) -I$(ZSTD_INCLUDE_DIR) -Wall -g -fPIC -lc -lm -O2 -fpermissive -std=c++11
+CFLAGS = -I$(RM_INCLUDE_DIR) -I$(ZSTD_INCLUDE_DIR) -Wall -g -fPIC -lc -lm -O2 -std=c++11
 CC=g++
-SRCS=TaskQueue.cpp TaskScheduler.cpp TaskWorker.cpp zstd_vals.cpp
+LD=g++
+SRCS=TaskQueue.cpp TaskScheduler.cpp TaskWorker.cpp ZSETTask.cpp zstd_vals.cpp
 OBJS=$(subst .cpp,.o,$(SRCS))
 
 all: zstd_vals.so

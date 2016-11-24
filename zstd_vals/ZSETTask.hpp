@@ -5,19 +5,22 @@
 #pragma once
 
 #include "Task.hpp"
+#include <cstddef>
+
+typedef struct RedisModuleBlockedClient RedisModuleBlockedClient;
 
 class ZSETTask : public Task {
 public:
     ZSETTask();
-    virtual ~ZSETTask();
+    ~ZSETTask() override;
 
     void Run() override;
 
     RedisModuleBlockedClient *bc;
-    size_t key_len;
+    std::size_t key_len;
     char *key;
-    size_t value_len;
+    std::size_t value_len;
     char *value;
-    size_t res;
+    std::size_t res;
     void *compressed;
 };

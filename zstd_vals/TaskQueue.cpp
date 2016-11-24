@@ -9,6 +9,11 @@
 TaskQueue::TaskQueue() {
 };
 
+TaskQueue::~TaskQueue()
+{
+    ;
+}
+
 void TaskQueue::PushTask(std::shared_ptr<Task> task)
 {
     std::lock_guard<std::mutex> lock(task_mutex);

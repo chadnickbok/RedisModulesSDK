@@ -17,18 +17,6 @@ extern "C" {
 #include "ZSETTask.hpp"
 #include "TaskScheduler.hpp"
 
-typedef struct {
-  RedisModuleBlockedClient *bc;
-  // Inputs
-  size_t key_len;
-  char *key;
-  size_t value_len;
-  char *value;
-  // Compressed result
-  size_t res;
-  void *compressed;
-} zset_task;
-
 int ZSET_Reply(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
 {
     REDISMODULE_NOT_USED(argv);
@@ -72,11 +60,8 @@ int ZSET_Timeout(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
 
 void ZSET_FreeData(void *privdata)
 {
-    zset_task *task = (zset_task*)privdata;
-    RedisModule_Free(task->key);
-    RedisModule_Free(task->value);
-    RedisModule_Free(task->compressed);
-    RedisModule_Free(task);
+    ZSETTask *task = (ZSETTask*) privdata;
+    delete task;
 }
 
 /*
