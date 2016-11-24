@@ -21,12 +21,12 @@ public:
   TaskQueue& operator=(const TaskQueue&) = delete;
   virtual ~TaskQueue();
 
-  virtual void PushTask(std::shared_ptr<Task> task);
-  virtual std::shared_ptr<Task> PopTask();
+  virtual void PushTask(Task *task);
+  virtual Task *PopTask();
 
 private:
   // Internal Queue
-  std::queue<std::shared_ptr<Task>> tasks;
+  std::queue<Task*> tasks;
   // Queue thread safety
   mutable std::mutex task_mutex;
   std::condition_variable task_cond;

@@ -14,16 +14,16 @@ TaskQueue::~TaskQueue()
     ;
 }
 
-void TaskQueue::PushTask(std::shared_ptr<Task> task)
+void TaskQueue::PushTask(Task *task)
 {
     std::lock_guard<std::mutex> lock(task_mutex);
     tasks.push(task);
     task_cond.notify_one();
 }
 
-std::shared_ptr<Task> TaskQueue::PopTask()
+Task *TaskQueue::PopTask()
 {
-    std::shared_ptr<Task> task;
+    Task *task = nullptr;
     std::unique_lock<std::mutex> lock(task_mutex);
 
     task_cond.wait_for(lock, std::chrono::milliseconds(1000),

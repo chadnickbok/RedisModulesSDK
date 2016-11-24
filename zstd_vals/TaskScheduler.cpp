@@ -29,7 +29,7 @@ TaskScheduler::~TaskScheduler()
     }
 }
 
-void TaskScheduler::PushTask(std::shared_ptr<Task> task)
+void TaskScheduler::PushTask(Task *task)
 {
     this->task_queue->PushTask(task);
 }

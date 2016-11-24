@@ -9,7 +9,7 @@ SHOBJ_LDFLAGS ?= -shared -Bsymbolic
 CFLAGS = -I$(RM_INCLUDE_DIR) -I$(ZSTD_INCLUDE_DIR) -Wall -g -fPIC -lc -lm -O2 -std=c++11
 CC=g++
 LD=g++
-SRCS=TaskQueue.cpp TaskScheduler.cpp TaskWorker.cpp ZSETTask.cpp zstd_vals.cpp
+SRCS=TaskQueue.cpp TaskScheduler.cpp TaskWorker.cpp ZSETTask.cpp ZDICTSETTask.cpp zstd_vals.cpp
 OBJS=$(subst .cpp,.o,$(SRCS))
 
 all: zstd_vals.so

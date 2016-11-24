@@ -17,7 +17,7 @@ public:
   TaskScheduler(int workers);
   virtual ~TaskScheduler();
 
-  virtual void PushTask(std::shared_ptr<Task> task);
+  virtual void PushTask(Task *task);
 
 private:
   std::shared_ptr<TaskQueue> task_queue;
