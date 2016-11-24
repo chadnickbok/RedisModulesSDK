@@ -12,6 +12,8 @@ extern "C" {
 #include <pthread.h>
 }
 
+#include "TaskScheduler.hpp"
+
 typedef struct {
   RedisModuleBlockedClient *bc;
   // Inputs

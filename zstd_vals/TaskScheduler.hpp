@@ -2,6 +2,8 @@
  * Simple Multi-Threaded Task Scheduler.
  */
 
+#pragma once
+
 #include <memory>
 #include <vector>
 #include <thread>

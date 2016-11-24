@@ -3,6 +3,8 @@
  * Override Run in sub-classes.
  */
 
+#pragma once
+
 class Task {
 public:
   Task() {};

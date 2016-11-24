@@ -3,8 +3,10 @@
  * Waits for tasks from a blocking TaskQueue.
  */
 
+#pragma once
+
 #include <atomic>
-#include <shared_ptr>
+#include <memory>
 
 #include "TaskQueue.hpp"
 
@@ -17,6 +19,5 @@ public:
   void Stop();
 
 private:
-  std::shared
   std::atomic<bool> should_stop;
 };

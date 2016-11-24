@@ -3,13 +3,14 @@
  * PopTask blocks until job availabl
  */
 
+#pragma once
+
 #include <memory>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <vector>
 #include <queue>
-
 
 class TaskQueue {
 public:
@@ -27,4 +28,4 @@ private:
   // Queue thread safety
   mutable std::mutex task_mutex;
   std::condition_variable task_cond;
-}
+};
