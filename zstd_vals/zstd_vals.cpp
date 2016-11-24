@@ -102,60 +102,6 @@ int ZSETCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     return REDISMODULE_OK;
 }
 
-/**
- * zstd_vals.ZSETLEVEL <key> <level> <value>
- */
-int ZSETLEVELCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
-{
-    if (argc != 4)
-    {
-        return RedisModule_WrongArity(ctx);
-    }
-    RedisModule_AutoMemory(ctx);
-
-    RedisModuleKey *key = (RedisModuleKey*) RedisModule_OpenKey(ctx,argv[1], REDISMODULE_READ|REDISMODULE_WRITE);
-    int keytype = RedisModule_KeyType(key);
-    if ((keytype != REDISMODULE_KEYTYPE_STRING) && (keytype != REDISMODULE_KEYTYPE_EMPTY))
-    {
-        RedisModule_CloseKey(key);
-        return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
-    }
-
-    long long level_arg;
-    if (RedisModule_StringToLongLong(argv[2], &level_arg) != REDISMODULE_OK)
-    {
-        RedisModule_CloseKey(key);
-        RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
-    }
-
-    int level = (int) level_arg;
-
-    size_t len;
-    const char *value = RedisModule_StringPtrLen(argv[3], &len);
-    // XXX: Do I need to check for errors here? ie. zero-length values
-
-    size_t bound = ZSTD_compressBound(len);
-    void *buf = RedisModule_Alloc(bound);
-    // XXX: Do I need to check return value of RedisModule_Alloc?
-
-    size_t res = ZSTD_compress(buf, bound, value, len, level); // Default super-fast mode
-    if (ZSTD_isError(res))
-    {
-        RedisModule_CloseKey(key);
-        const char *zstd_err = ZSTD_getErrorName(res);
-        return RedisModule_ReplyWithError(ctx, zstd_err);
-    }
-
-    RedisModuleString *compressed_string = RedisModule_CreateString(ctx, (const char *)buf, res);
-
-    RedisModule_StringSet(key, compressed_string);
-    RedisModule_CloseKey(key);
-    RedisModule_Free(buf);
-
-    RedisModule_ReplyWithSimpleString(ctx,"OK");
-    return REDISMODULE_OK;
-}
-
 /*
  * zstd_vals.ZGET <key>
  * Get the raw value of a key and decompress it.
@@ -348,25 +294,13 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx) {
         return REDISMODULE_ERR;
     }
 
-    // Basic commands
-    RMUtil_RegisterWriteCmd(ctx, "zstd.ZSET", ZSETCommand);
-    // zstd.ZSETLEVEL <key> <level> <string> - compress using the given level
-    RMUtil_RegisterReadCmd(ctx, "zstd.ZGET", ZGETCommand);
+    RMUtil_RegisterWriteCmd(ctx, "zstd.SET", ZSETCommand);
+    RMUtil_RegisterReadCmd(ctx, "zstd.GET", ZGETCommand);
 
     RMUtil_RegisterWriteCmd(ctx, "zstd.DICTSET", ZDICTSETCommand);
     RMUtil_RegisterReadCmd(ctx, "zstd.DICTGET", ZDICTGETCommand);
 
-    // Compress with level
-    RMUtil_RegisterWriteCmd(ctx, "zstd.ZSETLEVEL", ZSETLEVELCommand);
-
-    // Scary commands that can lose data (if a dict is lost so are all its compressed values)
-    // zstd.ZDICTSET <key> <dictkey> <string> - compress using the given dictionary
-    // zstd.ZDICTGET <key> <dictkey> - get the value stored at key decompressed with the dictionary at dictkey
-
-    // The ultimate command
-    // zstd.ZDICTSETLEVEL <key> <dictkey> <level> <string> - compress using the given dict and level
-
-    // Load scheduler
+    // Task scheduler
     scheduler = std::make_shared<TaskScheduler>(4);
 
     // Detect Dictionary config and load
